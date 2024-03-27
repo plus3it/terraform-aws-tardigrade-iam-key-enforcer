@@ -17,7 +17,7 @@ Rotate any keys as necessary to prevent disruption to your applications.
 
 {{#if exempt_groups}}
     Exempted IAM Group(s):{{exempt_groups}}.
-    Exempted group members have a key status value of <STATUS> (Exempt).
+    Exempted group members have a key status value of "STATUS" (Exempt).
 {{/if}}
 
 IAM User Name, Access Key ID, Key Age, Key Status, Last Used
