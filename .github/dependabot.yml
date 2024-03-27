@@ -18,3 +18,12 @@ updates:
       docker:
         patterns:
           - "*"
+  # Maintain dependencies for terraform
+  - package-ecosystem: terraform
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      terraform:
+        patterns:
+          - "*"
