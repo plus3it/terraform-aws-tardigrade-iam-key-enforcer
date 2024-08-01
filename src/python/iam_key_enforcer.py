@@ -39,6 +39,7 @@ Event Variables:
     exempt_groups: IAM Groups that are exempt from actions on access keys
 
 """
+
 import collections
 import csv
 import io
