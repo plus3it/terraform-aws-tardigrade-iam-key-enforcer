@@ -1,4 +1,4 @@
-FROM plus3it/tardigrade-ci:0.25.0
+FROM plus3it/tardigrade-ci:0.26.0
 
 COPY ./src/python/requirements.txt /app/requirements/lambda.txt
 
