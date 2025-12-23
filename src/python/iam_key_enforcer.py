@@ -452,6 +452,7 @@ def admin_email_template_data(key_report_contents, event, exempt_groups):
         "key_age_inactive": KEY_AGE_INACTIVE,
         "key_age_delete": KEY_AGE_DELETE,
         "key_age_warning": KEY_AGE_WARNING,
+        "key_use_threshold": KEY_USE_THRESHOLD,
     }
 
     template_data.update(optional_email_template_data(event, exempt_groups))
