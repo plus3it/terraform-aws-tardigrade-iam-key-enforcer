@@ -10,9 +10,13 @@
     The information below is for informational purposes and represents the results if the IAM Key Enforcer were active.
 {{/if}}
 
-Access Keys over {{key_age_inactive}} days old have been DEACTIVATED, keys older than {{key_age_delete}} days have been DELETED.
-Access keys over {{key_age_warning}} days old are DEACTIVATED at {{key_age_inactive}} days old and DELETED after {{key_age_delete}} days old.
-Rotate any keys as necessary to prevent disruption to your applications.
+Warnings begin for Access Keys at {{key_age_warning}} days.
+
+Access Keys are DISABLED at {{key_age_inactive}} days and DELETED at {{key_age_delete}} days.
+
+Access Keys that have never been used are deleted at {{key_use_threshold}} days.
+
+Rotate Access Keys as necessary to prevent disruption to your applications or services.
 
 
 {{#if exempt_groups}}
