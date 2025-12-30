@@ -102,6 +102,7 @@ EMAIL_USER_TEMPLATE = os.environ.get("EMAIL_USER_TEMPLATE")
 EMAIL_ADMIN_TEMPLATE = os.environ.get("EMAIL_ADMIN_TEMPLATE")
 NOT_ARMED_PREFIX = "NOT ARMED:"
 ARMED_PREFIX = "ARMED:"
+DEFAULT_PROCESSING_ERROR_MSG = "Errors occurred during processing, see logs"
 
 # Get the Lambda session and clients
 SESSION = boto3.Session()
@@ -114,6 +115,10 @@ email_regex = re.compile(
 
 class IamKeyEnforcerError(Exception):
     """All errors raised by IamKeyEnforcer Lambda."""
+
+
+class IamKeyEnforcerEmailError(Exception):
+    """Raised when there is an SES Client Email Error."""
 
 
 def lambda_handler(event, context):  # pylint: disable=unused-argument
@@ -144,12 +149,17 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     report = get_credential_report(client_iam)
 
     # Process Users in Credential Report
-    key_report_contents = process_credential_report(client_iam, event, report)
+    key_report_contents, has_errors = process_credential_report(
+        client_iam, event, report
+    )
 
     if key_report_contents:
         store_and_email_report(key_report_contents, event)
     else:
         log.info("No expiring access keys for account arn %s", assumed_acct_arn)
+
+    if has_errors:
+        raise IamKeyEnforcerError(DEFAULT_PROCESSING_ERROR_MSG)
 
 
 def generate_credential_report(client_iam, report_counter, max_attempts=5):
@@ -180,12 +190,11 @@ def get_credential_report(client_iam):
     return list(csv.DictReader(credential_report_csv))
 
 
-def process_credential_report(
-    client_iam, event, report
-):  # pylint: disable=too-many-branches
+def process_credential_report(client_iam, event, report):
     """Process each user and key in the Credential Report."""
     # Initialize message content
     key_report_contents = []
+    has_errors = False
 
     # Access the credential report and process it
     for row in report:
@@ -198,15 +207,26 @@ def process_credential_report(
             continue
 
         # Test group exempted
-        exempted = is_exempted(client_iam, user_name, event)
+        try:
+            exempted = is_exempted(client_iam, user_name, event)
+        except ClientError as error:
+            has_errors = True
+            log.exception(
+                "Error %s checking if user is exempted - skipping user %s",
+                error.response["Error"]["Code"],
+                user_name,
+            )
+            continue
 
-        # Process Access Keys for user
-        access_keys = client_iam.list_access_keys(UserName=user_name)
-        for key in access_keys["AccessKeyMetadata"]:
+        # Get Access Keys for user
+        access_keys, get_key_errors = get_user_access_keys(client_iam, user_name)
+        if get_key_errors:
+            has_errors = True
+            continue
+
+        for key in access_keys:
             key_age = object_age(key["CreateDate"])
-            access_key_id = key["AccessKeyId"]
-
-            # Log it
+            # Log Access Key Details
             log.info(
                 "User Key Details: %s \t %s \t %s \t %s",
                 user_name,
@@ -215,52 +235,99 @@ def process_credential_report(
                 key["Status"],
             )
 
-            # get time of last key use
-            get_key = client_iam.get_access_key_last_used(AccessKeyId=access_key_id)
-
-            # last_used_date value will not exist if key not used
-            last_used_date = get_key["AccessKeyLastUsed"].get("LastUsedDate")
-
-            if not exempted and not last_used_date and key_age >= KEY_USE_THRESHOLD:
-                # Not Exempted and Key has not been used and
-                # is older than the usage threshold, delete and report
-                delete_access_key(access_key_id, user_name, client_iam, event)
-                bg_color = "#E6B0AA"
-                key_status = "DELETED"
-            elif key_age < KEY_AGE_WARNING:
-                # Key age is < warning, do nothing, continue
-                continue
-            elif exempted:
-                # EXEMPT:, do not take action on key, but report it
-                bg_color = "#D7DBDD"
-                key_status = f'{key["Status"]} (Exempt)'
-            elif key_age >= KEY_AGE_DELETE:
-                # NOT EXEMPT: Delete and report
-                delete_access_key(access_key_id, user_name, client_iam, event)
-                bg_color = "#E6B0AA"
-                key_status = "DELETED"
-            elif key_age >= KEY_AGE_INACTIVE:
-                # NOT EXEMPT: Disable and report
-                disable_access_key(access_key_id, user_name, client_iam, event)
-                bg_color = "#F4D03F"
-                key_status = key["Status"]
-            else:
-                # NOT EXEMPT: Report
-                bg_color = "#FFFFFF"
-                key_status = key["Status"]
-
-            key_report_contents.append(
-                {
-                    "bg_color": bg_color,
-                    "user_name": user_name,
-                    "access_key_id": key["AccessKeyId"],
-                    "key_age": str(key_age),
-                    "key_status": key_status,
-                    "last_used_date": str(last_used_date),
-                }
+            key_report_row, row_errors = process_user_access_key(
+                client_iam, key, user_name, event, exempted
             )
+            if key_report_row:
+                key_report_contents.append(key_report_row)
+            if row_errors:
+                has_errors = True
 
-    return key_report_contents
+    return key_report_contents, has_errors
+
+
+def get_user_access_keys(client_iam, user_name):
+    """Get Access Keys for a user."""
+    try:
+        access_keys = client_iam.list_access_keys(UserName=user_name)
+        return access_keys["AccessKeyMetadata"], False
+    except ClientError as error:
+        log.exception(
+            "Error %s listing access keys for user %s - skipping user",
+            error.response["Error"]["Code"],
+            user_name,
+        )
+        return [], True
+
+
+def process_user_access_key(client_iam, key, user_name, event, exempted):
+    """Process each access key for a user."""
+    has_errors = False
+    access_key_id = key["AccessKeyId"]
+
+    try:
+        # get time of last key use
+        response = client_iam.get_access_key_last_used(AccessKeyId=access_key_id)
+        # last_used_date value will not exist if key not used
+        last_used_date = response["AccessKeyLastUsed"].get("LastUsedDate")
+    except ClientError as error:
+        has_errors = True
+        log.exception(
+            "Error %s getting last used date for key %s user %s - skipping key",
+            error.response["Error"]["Code"],
+            access_key_id,
+            user_name,
+        )
+        return None, has_errors
+
+    # get the key_age
+    key_age = object_age(key["CreateDate"])
+
+    if not exempted and not last_used_date and key_age >= KEY_USE_THRESHOLD:
+        # Not Exempted and Key has not been used and
+        # is older than the usage threshold, delete and report
+        bg_color = "#E6B0AA"
+        key_status, has_errors = process_delete(
+            access_key_id, user_name, client_iam, event
+        )
+
+    elif key_age < KEY_AGE_WARNING:
+        # Key age is < warning, do nothing, continue
+        return None, has_errors
+    elif exempted:
+        # EXEMPT:, do not take action on key, but report it
+        bg_color = "#D7DBDD"
+        key_status = f'{key["Status"]} (Exempt)'
+
+    elif key_age >= KEY_AGE_DELETE:
+        # NOT EXEMPT: Delete and report
+        bg_color = "#E6B0AA"
+        key_status, has_errors = process_delete(
+            access_key_id, user_name, client_iam, event
+        )
+
+    elif key_age >= KEY_AGE_INACTIVE:
+        # NOT EXEMPT: Disable and report
+        bg_color = "#F4D03F"
+        key_status, has_errors = process_disable(
+            access_key_id, user_name, client_iam, event, key
+        )
+
+    else:
+        # NOT EXEMPT: Report
+        bg_color = "#FFFFFF"
+        key_status = key["Status"]
+
+    report_row = {
+        "bg_color": bg_color,
+        "user_name": user_name,
+        "access_key_id": key["AccessKeyId"],
+        "key_age": str(key_age),
+        "key_status": key_status,
+        "last_used_date": str(last_used_date),
+    }
+
+    return report_row, has_errors
 
 
 def is_exempted(client_iam, user_name, event):
@@ -271,6 +338,21 @@ def is_exempted(client_iam, user_name, event):
             log.info("User is exempt via group membership in: %s", group["GroupName"])
             return True
     return False
+
+
+def process_delete(access_key_id, user_name, client_iam, event):
+    """Call delete on access key and get key status message and error status."""
+    has_errors = False
+    try:
+        delete_access_key(access_key_id, user_name, client_iam, event)
+        key_status = "DELETED"
+    except ClientError:
+        has_errors = True
+        key_status = "ERROR DELETING"
+    except IamKeyEnforcerEmailError:
+        has_errors = True
+        key_status = "DELETED (Email User Error)"
+    return key_status, has_errors
 
 
 def delete_access_key(access_key_id, user_name, client_iam, event):
@@ -285,7 +367,13 @@ def delete_access_key(access_key_id, user_name, client_iam, event):
         user_name,
     )
     if event["armed"]:
-        client_iam.delete_access_key(UserName=user_name, AccessKeyId=access_key_id)
+        try:
+            client_iam.delete_access_key(UserName=user_name, AccessKeyId=access_key_id)
+        except ClientError as error:
+            logging.exception(
+                "Error deleting access key User %s - Key %s", user_name, access_key_id
+            )
+            raise error
 
     if event["email_user_enabled"]:
         armed_state_msg = (
@@ -306,6 +394,22 @@ def delete_access_key(access_key_id, user_name, client_iam, event):
         log.info("Email User not enabled per event email_user_enabled variable setting")
 
 
+def process_disable(access_key_id, user_name, client_iam, event, key):
+    """Call disable on access key and get key status message."""
+    has_errors = False
+    try:
+        disable_access_key(access_key_id, user_name, client_iam, event)
+        key_status = key["Status"]
+    except ClientError:
+        has_errors = True
+        key_status = f'{key["Status"]} (Error Disabling)'
+    except IamKeyEnforcerEmailError:
+        has_errors = True
+        key_status = f'{key["Status"]} (Email User Error)'
+
+    return key_status, has_errors
+
+
 def disable_access_key(access_key_id, user_name, client_iam, event):
     """Disable Access Key."""
     armed_log_prefix = NOT_ARMED_PREFIX
@@ -319,9 +423,15 @@ def disable_access_key(access_key_id, user_name, client_iam, event):
     )
 
     if event["armed"]:
-        client_iam.update_access_key(
-            UserName=user_name, AccessKeyId=access_key_id, Status="Inactive"
-        )
+        try:
+            client_iam.update_access_key(
+                UserName=user_name, AccessKeyId=access_key_id, Status="Inactive"
+            )
+        except ClientError as error:
+            logging.exception(
+                "Error disabling access key User %s - Key %s", user_name, access_key_id
+            )
+            raise error
 
     if event["email_user_enabled"]:
         armed_state_msg = (
@@ -362,6 +472,7 @@ def email_user(client_iam, user_key_details, event):
         log.info("User Email Sent Successfully. Message ID: %s", response["MessageId"])
     except ClientError as error:
         log.exception("Error sending user email - %s", error.response["Error"]["Code"])
+        raise IamKeyEnforcerEmailError("Error sending user email") from error
 
 
 def email_admin(event, template_data):
@@ -383,6 +494,7 @@ def email_admin(event, template_data):
         log.info("Admin Email Sent Successfully. Message ID: %s", response["MessageId"])
     except ClientError as error:
         log.exception("Error sending admin email - %s", error.response["Error"]["Code"])
+        raise IamKeyEnforcerEmailError("Error sending admin email") from error
 
 
 def get_to_addresses(event):
@@ -516,16 +628,25 @@ def store_and_email_report(key_report_contents, event):
 
     template_data = admin_email_template_data(key_report_contents, event, exempt_groups)
 
+    # Set default has_errors to False
+    has_errors = False
     try:
         store_in_s3(event["account_number"], template_data)
     except ClientError as error:
+        has_errors = True
         log.exception(
             "Error generating/storing report in S3 Bucket %s - error %s",
             S3_BUCKET,
             error.response["Error"]["Code"],
         )
 
-    email_admin(event, template_data)
+    try:
+        email_admin(event, template_data)
+    except IamKeyEnforcerEmailError:
+        has_errors = True
+
+    if has_errors:
+        raise IamKeyEnforcerError(DEFAULT_PROCESSING_ERROR_MSG)
 
 
 def store_in_s3(account_number, template_data):
