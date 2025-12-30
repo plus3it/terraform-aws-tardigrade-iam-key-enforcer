@@ -52,6 +52,7 @@ import datetime
 import dateutil
 
 import boto3
+from botocore.exceptions import ClientError
 from aws_assume_role_lib import assume_role, generate_lambda_session_name
 
 # Standard logging config
@@ -358,8 +359,8 @@ def email_user(client_iam, user_key_details, event):
 
     try:
         send_email(EMAIL_USER_TEMPLATE, template_data, to_addresses)
-    except Exception as e:
-        log.exception("Error sending user email")
+    except ClientError as error:
+        log.exception("Error sending user email - %s", error.response["Error"]["Code"])
 
 
 def email_admin(event, template_data):
@@ -377,8 +378,8 @@ def email_admin(event, template_data):
             template_data,
             to_addresses,
         )
-    except Exception as e:
-        log.exception("Error sending admin email")
+    except ClientError as error:
+        log.exception("Error sending admin email - %s", error.response["Error"]["Code"])
 
 
 def get_to_addresses(event):
@@ -514,8 +515,12 @@ def store_and_email_report(key_report_contents, event):
 
     try:
         store_in_s3(event["account_number"], template_data)
-    except Exception as e:
-        log.exception("Error storing report in S3 Bucket %s", S3_BUCKET)
+    except ClientError as error:
+        log.exception(
+            "Error generating/storing report in S3 Bucket %s - error %s",
+            S3_BUCKET,
+            error.response["Error"]["Code"],
+        )
 
     email_admin(event, template_data)
 
