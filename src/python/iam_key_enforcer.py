@@ -358,7 +358,8 @@ def email_user(client_iam, user_key_details, event):
     template_data = user_email_template_data(user_key_details, event)
 
     try:
-        send_email(EMAIL_USER_TEMPLATE, template_data, to_addresses)
+        response = send_email(EMAIL_USER_TEMPLATE, template_data, to_addresses)
+        log.info("User Email Sent Successfully. Message ID: %s", response["MessageId"])
     except ClientError as error:
         log.exception("Error sending user email - %s", error.response["Error"]["Code"])
 
@@ -373,11 +374,13 @@ def email_admin(event, template_data):
 
     try:
         # Construct and Send Email
-        send_email(
+        response = send_email(
             EMAIL_ADMIN_TEMPLATE,
             template_data,
             to_addresses,
         )
+
+        log.info("Admin Email Sent Successfully. Message ID: %s", response["MessageId"])
     except ClientError as error:
         log.exception("Error sending admin email - %s", error.response["Error"]["Code"])
 
@@ -556,11 +559,7 @@ def store_in_s3(account_number, template_data):
 
 def send_email(template, template_data, email_targets):
     """Email user with the action taken on their key."""
-    if not email_targets:
-        log.error("Email targets list is empty, no emails sent")
-        return
-
-    response = CLIENT_SES.send_templated_email(
+    return CLIENT_SES.send_templated_email(
         Source=EMAIL_SOURCE,
         Destination={
             "ToAddresses": email_targets,
@@ -568,8 +567,6 @@ def send_email(template, template_data, email_targets):
         Template=template,
         TemplateData=json.dumps(template_data),
     )
-
-    log.info("Email Sent Successfully. Message ID: %s", response["MessageId"])
 
 
 def object_age(last_changed):
