@@ -356,7 +356,10 @@ def email_user(client_iam, user_key_details, event):
 
     template_data = user_email_template_data(user_key_details, event)
 
-    send_email(EMAIL_USER_TEMPLATE, template_data, to_addresses)
+    try:
+        send_email(EMAIL_USER_TEMPLATE, template_data, to_addresses)
+    except Exception as e:
+        log.exception("Error sending user email")
 
 
 def email_admin(event, template_data):
@@ -367,12 +370,15 @@ def email_admin(event, template_data):
         log.error("Admin email list is empty, no emails sent")
         return
 
-    # Construct and Send Email
-    send_email(
-        EMAIL_ADMIN_TEMPLATE,
-        template_data,
-        to_addresses,
-    )
+    try:
+        # Construct and Send Email
+        send_email(
+            EMAIL_ADMIN_TEMPLATE,
+            template_data,
+            to_addresses,
+        )
+    except Exception as e:
+        log.exception("Error sending admin email")
 
 
 def get_to_addresses(event):
@@ -506,7 +512,10 @@ def store_and_email_report(key_report_contents, event):
 
     template_data = admin_email_template_data(key_report_contents, event, exempt_groups)
 
-    store_in_s3(event["account_number"], template_data)
+    try:
+        store_in_s3(event["account_number"], template_data)
+    except Exception as e:
+        log.exception("Error storing report in S3 Bucket %s", S3_BUCKET)
 
     email_admin(event, template_data)
 
