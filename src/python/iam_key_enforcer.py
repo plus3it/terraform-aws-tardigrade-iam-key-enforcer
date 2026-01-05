@@ -209,18 +209,14 @@ def process_credential_report(client_iam, event, report):
         # Test group exempted
         try:
             exempted = is_exempted(client_iam, user_name, event)
-        except ClientError as error:
+        except ClientError:
             has_errors = True
-            log.exception(
-                "Error %s checking if user is exempted - skipping user %s",
-                error.response["Error"]["Code"],
-                user_name,
-            )
             continue
 
         # Get Access Keys for user
-        access_keys, get_key_errors = get_user_access_keys(client_iam, user_name)
-        if get_key_errors:
+        try:
+            access_keys = get_user_access_keys(client_iam, user_name)
+        except ClientError:
             has_errors = True
             continue
 
@@ -240,6 +236,7 @@ def process_credential_report(client_iam, event, report):
             )
             if key_report_row:
                 key_report_contents.append(key_report_row)
+
             if row_errors:
                 has_errors = True
 
@@ -250,14 +247,14 @@ def get_user_access_keys(client_iam, user_name):
     """Get Access Keys for a user."""
     try:
         access_keys = client_iam.list_access_keys(UserName=user_name)
-        return access_keys["AccessKeyMetadata"], False
+        return access_keys["AccessKeyMetadata"]
     except ClientError as error:
         log.exception(
             "Error %s listing access keys for user %s - skipping user",
             error.response["Error"]["Code"],
             user_name,
         )
-        return [], True
+        raise error
 
 
 def process_user_access_key(client_iam, key, user_name, event, exempted):
@@ -266,19 +263,10 @@ def process_user_access_key(client_iam, key, user_name, event, exempted):
     access_key_id = key["AccessKeyId"]
 
     try:
-        # get time of last key use
-        response = client_iam.get_access_key_last_used(AccessKeyId=access_key_id)
-        # last_used_date value will not exist if key not used
-        last_used_date = response["AccessKeyLastUsed"].get("LastUsedDate")
-    except ClientError as error:
-        has_errors = True
-        log.exception(
-            "Error %s getting last used date for key %s user %s - skipping key",
-            error.response["Error"]["Code"],
-            access_key_id,
-            user_name,
-        )
-        return None, has_errors
+        last_used_date = get_key_last_used_date(client_iam, access_key_id, user_name)
+    except ClientError:
+        # Skip this key since we had errors getting the last used date
+        return None, True
 
     # get the key_age
     key_age = object_age(key["CreateDate"])
@@ -293,28 +281,31 @@ def process_user_access_key(client_iam, key, user_name, event, exempted):
 
     elif key_age < KEY_AGE_WARNING:
         # Key age is < warning, do nothing, continue
-        return None, has_errors
+        return None, False
     elif exempted:
         # EXEMPT:, do not take action on key, but report it
         bg_color = "#D7DBDD"
         key_status = f'{key["Status"]} (Exempt)'
 
     elif key_age >= KEY_AGE_DELETE:
-        # NOT EXEMPT: Delete and report
+        # NOT EXEMPT: Key is older than the age to delete
+        # Attempt to delete and add row to report
         bg_color = "#E6B0AA"
         key_status, has_errors = process_delete(
             access_key_id, user_name, client_iam, event
         )
 
     elif key_age >= KEY_AGE_INACTIVE:
-        # NOT EXEMPT: Disable and report
+        # NOT EXEMPT: Key is older than the age to disable
+        # Attempt to disable and add row to report
         bg_color = "#F4D03F"
         key_status, has_errors = process_disable(
             access_key_id, user_name, client_iam, event, key
         )
 
     else:
-        # NOT EXEMPT: Report
+        # NOT EXEMPT: If are here the key is old enough to warn about
+        # but not old enough to delete or disable, so add a warning to report
         bg_color = "#FFFFFF"
         key_status = key["Status"]
 
@@ -330,14 +321,41 @@ def process_user_access_key(client_iam, key, user_name, event, exempted):
     return report_row, has_errors
 
 
+def get_key_last_used_date(client_iam, access_key_id, user_name):
+    """Get the last used date for an access key."""
+    try:
+        # get time of last key use
+        response = client_iam.get_access_key_last_used(AccessKeyId=access_key_id)
+        # last_used_date value will not exist if key not used
+        return response["AccessKeyLastUsed"].get("LastUsedDate")
+    except ClientError as error:
+        log.exception(
+            "Error %s getting last used date for key %s user %s - skipping key",
+            error.response["Error"]["Code"],
+            access_key_id,
+            user_name,
+        )
+        raise error
+
+
 def is_exempted(client_iam, user_name, event):
     """Determine if user is in an exempted group."""
-    groups = client_iam.list_groups_for_user(UserName=user_name)
-    for group in groups["Groups"]:
-        if group["GroupName"] in event["exempt_groups"]:
-            log.info("User is exempt via group membership in: %s", group["GroupName"])
-            return True
-    return False
+    try:
+        groups = client_iam.list_groups_for_user(UserName=user_name)
+        for group in groups["Groups"]:
+            if group["GroupName"] in event["exempt_groups"]:
+                log.info(
+                    "User is exempt via group membership in: %s", group["GroupName"]
+                )
+                return True
+        return False
+    except ClientError as error:
+        log.exception(
+            "Error %s checking if user is exempted - skipping user %s",
+            error.response["Error"]["Code"],
+            user_name,
+        )
+        raise error
 
 
 def process_delete(access_key_id, user_name, client_iam, event):
