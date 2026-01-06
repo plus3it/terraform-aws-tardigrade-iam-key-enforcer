@@ -43,13 +43,12 @@ Event Variables:
 import sys
 import csv
 import io
-from time import sleep
-
 
 from argparse import ArgumentParser
-from constants import LOG, SESSION
+from time import sleep
+from constants import ARMED_PREFIX, LOG, NOT_ARMED_PREFIX, SESSION
 from aws_assume_role_lib import assume_role, generate_lambda_session_name
-from iam_key_enforcer_report import EventDetails, IamKeyEnforcerReport
+from iam_key_enforcer_reporter import IamKeyEnforcerReporter
 from errors import GenerateCredentialReportThrottleError
 
 
@@ -73,19 +72,10 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
         - Takes action (inactive/delete) on non-compliant Access Keys
     """
     # Call main function to peform the work
-    event_details = EventDetails(
-        event["account_number"],
-        event["account_name"],
-        event["email_targets"],
-        event["email_user_enabled"],
-        event["exempt_groups"],
-    )
     main(
         event["role_arn"],
-        event_details,
+        event,
         context.function_name,
-        event["armed"],
-        event.get("debug"),
     )
 
 
@@ -127,20 +117,20 @@ def get_client_iam(role_arn, function_name):
     return assumed_role_session.client("iam")
 
 
-def main(role_arn, account_details, function_name, armed, is_debug):
-    """Main handler for IAM Key Enforcer."""
-
+def main(role_arn, event, function_name):
+    """Run the IAM Key Enforcer."""
     # Get IAM Client
     client_iam = get_client_iam(role_arn, function_name)
 
     # Get Credential Report
     credential_report = get_credential_report(client_iam, report_counter=0)
 
-    enforcer_report = IamKeyEnforcerReport(
-        client_iam, account_details, credential_report, armed, is_debug
-    )
+    # Create Iam Key Enforcer Report Object
+    log_prefix = (ARMED_PREFIX if event["armed"] else NOT_ARMED_PREFIX,)
+    enforcer_reporter = IamKeyEnforcerReporter(client_iam, event, log_prefix)
 
-    enforcer_report.generate()
+    # Evaluate each user in the credential report and enforce key policies
+    enforcer_reporter.enforce(credential_report)
 
 
 # Configure exception handler
@@ -158,9 +148,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--account-id",
+        "--account-number",
         required=True,
-        help="Account id of the target account to audit",
+        help="Account number of the target account to audit",
     )
 
     parser.add_argument(
@@ -182,11 +172,14 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    account_details = EventDetails(
-        account_id=args.account_id,
-        account_name=args.account_name,
-        email_targets=args.email_targets,
-        email_user_enabled=False,
-        exempt_groups=[],
-    )
-    sys.exit(main(args.role_arn, account_details, "iam_key_enforcer_cli", False, True))
+    cli_enforce_details = {
+        "account_name": args.account_name,
+        "account_number": args.account_number,
+        "armed": False,
+        "email_user_enabled": False,
+        "email_targets": args.email_targets,
+        "exempt_groups": args.exempt_groups,
+        "is_debug": True,
+    }
+
+    sys.exit(main(args.role_arn, cli_enforce_details, "iam_key_enforcer_cli"))
