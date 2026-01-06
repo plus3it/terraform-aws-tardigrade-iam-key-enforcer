@@ -1,23 +1,21 @@
-"""IAM Key Enforcement Row Data"""
+"""IAM Key Enforcement Row Data."""
 
-# Constants for enforcement actions
-DELETE_ACTION = "DELETE"
-DISABLE_ACTION = "DISABLE"
-EXEMPT_ACTION = "EXEMPT"
-WARN_ACTION = "WARNING"
+from constants import DELETE_ACTION, DISABLE_ACTION, EXEMPT_ACTION, WARN_ACTION
 
+# Background colors for different actions in the report
 ROW_BG_COLORS = {
-    "DELETE": "#E6B0AA",
-    "DISABLE": "#F4D03F",
-    "EXEMPT": "#D7DBDD",
-    "WARNING": "#FFFFFF",
+    DELETE_ACTION: "#E6B0AA",
+    DISABLE_ACTION: "#F4D03F",
+    EXEMPT_ACTION: "#D7DBDD",
+    WARN_ACTION: "#FFFFFF",
 }
 
 
 class IAMKeyReportRow:
-    """Data structure for IAM Key Report Row"""
+    """Data structure for IAM Key Report Row."""
 
     def __init__(self, user_name, access_key_id, action, status=None):
+        """Create IAMKeyReportRow."""
         self.user_name = user_name
         self.access_key_id = access_key_id
         self.action = action
