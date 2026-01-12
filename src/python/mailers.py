@@ -31,7 +31,7 @@ class AdminMailer:
         # Get the admin email addresses
         to_addresses = self.admin_email_addresses()
         LOG.debug(
-            "Admin Email template_data: %s" "to_addresses: %s",
+            "Admin Email template_data: %s to_addresses: %s",
             self.template_data,
             to_addresses,
         )

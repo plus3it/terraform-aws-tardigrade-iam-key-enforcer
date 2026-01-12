@@ -6,6 +6,7 @@ from datetime import datetime
 import utils
 from botocore.exceptions import ClientError
 from constants import (
+    ARMED_PREFIX,
     DEFAULT_PROCESSING_ERROR_MSG,
     DELETE_ACTION,
     DISABLE_ACTION,
@@ -16,6 +17,7 @@ from constants import (
     KEY_USE_THRESHOLD,
     LOG,
     NO_ACTION,
+    NOT_ARMED_PREFIX,
     S3_ENABLED,
     WARN_ACTION,
 )
@@ -51,12 +53,12 @@ class IaMAccessKeyUser:
 class IamKeyEnforcerReporter:
     """IAM Key Enforcer Report Generation and Notification."""
 
-    def __init__(self, client_iam, event: dict, log_prefix: str):
+    def __init__(self, client_iam, event: dict):
         """Create IAM Key Enforcer Reporter."""
         self.client_iam = client_iam
-        self.log_prefix = log_prefix
-        self.has_errors = False
         self.enforce_details = event
+        self.has_errors = False
+        self.log_prefix = ARMED_PREFIX if event["armed"] else NOT_ARMED_PREFIX
 
     def enforce(self, credentials_report):
         """Process Credentials, Enforce, and Report."""
@@ -128,7 +130,8 @@ class IamKeyEnforcerReporter:
 
                 # Log Access Key Details
                 LOG.info(
-                    "User Key Details: %s \t %s \t %s \t %s \t %s",
+                    "User Key Details - Name: %s, Id: %s, "
+                    "Age: %s, Status: %s, Last Used: %s",
                     user.name,
                     user.key.id,
                     str(user.key.age),
@@ -179,7 +182,7 @@ class IamKeyEnforcerReporter:
             key_status = key_user.key.boto_key["Status"]
             LOG.info(
                 "%s %s AccessKeyId %s for user %s (key age %s days : key status %s)",
-                self.enforce_details["log_prefix"],
+                self.log_prefix,
                 action,
                 key_id,
                 user_name,
