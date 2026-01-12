@@ -28,11 +28,17 @@ class AdminMailer:
 
     def mail(self):
         """Email admin."""
+        # Get the admin email addresses
+        to_addresses = self.admin_email_addresses()
+        LOG.debug(
+            "Admin Email template_data: %s" "to_addresses: %s",
+            self.template_data,
+            to_addresses,
+        )
+
         if not EMAIL_ADMIN_REPORT_ENABLED:
             LOG.info("Admin Email not enabled per setting")
             return
-
-        to_addresses = self.admin_email_addresses()
 
         if not to_addresses:
             LOG.error("Admin email list is empty, no emails sent")
@@ -154,7 +160,7 @@ def get_event_email_list(email_targets, is_debug):
     # if mode is debug we do not want to email the actual targets
     # log whatever targets there were and return an empty list
     if is_debug and email_list:
-        LOG.debug("Debug Mode:Event email targets %s", ", ".join(email_list))
+        LOG.debug("Debug Mode: Event email targets %s", ", ".join(email_list))
         return []
     return email_list
 
