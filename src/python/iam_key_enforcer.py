@@ -40,13 +40,14 @@ Event Variables:
 
 """
 
+import re
 import sys
 import csv
 import io
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from time import sleep
-from constants import ARMED_PREFIX, LOG, NOT_ARMED_PREFIX, SESSION
+from constants import LOG, SESSION
 from aws_assume_role_lib import assume_role, generate_lambda_session_name
 from iam_key_enforcer_reporter import IamKeyEnforcerReporter
 from errors import GenerateCredentialReportThrottleError
@@ -126,8 +127,7 @@ def main(role_arn, event, function_name):
     credential_report = get_credential_report(client_iam, report_counter=0)
 
     # Create Iam Key Enforcer Report Object
-    log_prefix = (ARMED_PREFIX if event["armed"] else NOT_ARMED_PREFIX,)
-    enforcer_reporter = IamKeyEnforcerReporter(client_iam, event, log_prefix)
+    enforcer_reporter = IamKeyEnforcerReporter(client_iam, event)
 
     # Evaluate each user in the credential report and enforce key policies
     enforcer_reporter.enforce(credential_report)
@@ -136,6 +136,34 @@ def main(role_arn, event, function_name):
 # Configure exception handler
 sys.excepthook = exception_hook
 
+
+def account_number(value: str) -> str:
+    """Argparse Account Number Validator."""
+    if len(value) != 12 or not value.isdigit():
+        raise ArgumentTypeError(
+            "account number must be exactly 12 digits (leading zeros allowed)"
+        )
+    return value
+
+
+def iam_role_arn(role_arn: str) -> str:
+    """Argparse IAM Role Arn Validator."""
+    iam_role_pattern = re.compile(
+        r"^arn:"
+        r"(?P<partition>aws|aws-us-gov)"
+        r":iam::"
+        r"(?P<account_id>\d{12})"
+        r":role/"
+        r"(?P<role_path>(?:[\w+=,.@-]+/)*[\w+=,.@-]+)$"
+    )
+    if not iam_role_pattern.match(role_arn):
+        raise ArgumentTypeError(
+            "invalid IAM role ARN "
+            "expected: arn:aws|aws-us-gov:iam::<12-digit-account>:role/<role-name>)"
+        )
+    return role_arn
+
+
 # CLI Entry Point for Local Testing
 if __name__ == "__main__":
     parser = ArgumentParser(
@@ -143,31 +171,38 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--role-arn",
+        type=iam_role_arn,
         required=True,
-        help="ARN of the IAM role to assume in the target account (case sensitive)",
+        help="AWS ARN of the IAM role to assume in the target account (case sensitive)",
     )
 
     parser.add_argument(
         "--account-number",
+        type=account_number,
         required=True,
-        help="Account number of the target account to audit",
+        help="AWS Account number (12 digits) of the target account to audit",
     )
 
     parser.add_argument(
         "--account-name",
         required=True,
-        help="Account name of the target account to audit",
+        type=str,
+        help="AWS Account name of the target account to audit",
     )
 
     parser.add_argument(
         "--email-targets",
         required=True,
+        nargs="+",
+        type=str,
         help="Email to send admin report to",
     )
 
     parser.add_argument(
         "--exempt-groups",
         required=False,
+        nargs="+",
+        type=str,
         help="Group Names that are exempt from key enforcement actions",
     )
 
