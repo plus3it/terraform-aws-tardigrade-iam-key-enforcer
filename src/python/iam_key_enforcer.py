@@ -206,15 +206,33 @@ if __name__ == "__main__":
         help="Group Names that are exempt from key enforcement actions",
     )
 
+    parser.add_argument(
+        "--email-user-enabled",
+        action="store_true",
+        help="Enable emailing the user",
+    )
+
+    parser.add_argument(
+        "--armed",
+        action="store_true",
+        help="Arm the enforcer",
+    )
+
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Debug mode for emails (aka look for but don't add user emails)",
+    )
+
     args = parser.parse_args()
     cli_enforce_details = {
         "account_name": args.account_name,
         "account_number": args.account_number,
-        "armed": False,
-        "email_user_enabled": False,
+        "armed": args.armed,
+        "email_user_enabled": args.email_user_enabled,
         "email_targets": args.email_targets,
         "exempt_groups": args.exempt_groups,
-        "is_debug": True,
+        "is_debug": args.debug,
     }
 
     sys.exit(main(args.role_arn, cli_enforce_details, "iam_key_enforcer_cli"))

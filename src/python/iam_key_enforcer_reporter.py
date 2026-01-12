@@ -6,6 +6,7 @@ from datetime import datetime
 import utils
 from botocore.exceptions import ClientError
 from constants import (
+    ACTION_REASONS,
     ARMED_PREFIX,
     DEFAULT_PROCESSING_ERROR_MSG,
     DELETE_ACTION,
@@ -19,6 +20,7 @@ from constants import (
     NO_ACTION,
     NOT_ARMED_PREFIX,
     S3_ENABLED,
+    UNUSED_ACTION,
     WARN_ACTION,
 )
 from errors import IamKeyEnforcerError, TemplateDataError
@@ -155,9 +157,7 @@ class IamKeyEnforcerReporter:
         """Process each access key for a user."""
         access_key_id = key_user.key.id
 
-        action = get_enforcement_action(
-            key_user.exempted, key_user.key.last_used_date, key_user.key.age
-        )
+        action = get_enforcement_action(key_user, self.log_prefix)
 
         if action == NO_ACTION:
             return None
@@ -180,15 +180,7 @@ class IamKeyEnforcerReporter:
             key_id = key_user.key.id
             user_name = key_user.name
             key_status = key_user.key.boto_key["Status"]
-            LOG.info(
-                "%s %s AccessKeyId %s for user %s (key age %s days : key status %s)",
-                self.log_prefix,
-                action,
-                key_id,
-                user_name,
-                key_user.key.age,
-                key_status,
-            )
+
             if action == DELETE_ACTION:
                 self.delete_access_key(key_id, user_name)
                 return "DELETED"
@@ -325,34 +317,6 @@ class IamKeyEnforcerReporter:
             LOG.error(msg)
 
 
-def get_enforcement_action(exempted, last_used_date, key_age):
-    """Get the action to perform based on the keys usage and exemption status."""
-    if not exempted and not last_used_date and key_age >= KEY_USE_THRESHOLD:
-        # Not Exempted and Key has not been used and
-        # is older than the usage threshold, delete and report
-        return DELETE_ACTION
-
-    if key_age < KEY_AGE_WARNING:
-        # Key age is < warning, do nothing, continue
-        return NO_ACTION
-
-    if exempted:
-        # EXEMPT:, do not take action on key, but report it
-        return EXEMPT_ACTION
-
-    if key_age >= KEY_AGE_DELETE:
-        # NOT EXEMPT: Key is older than the age to delete
-        # Attempt to delete and add row to report
-        return DELETE_ACTION
-
-    if key_age >= KEY_AGE_INACTIVE:
-        # NOT EXEMPT: Key is older than the age to disable
-        # Attempt to disable and add row to report
-        return DISABLE_ACTION
-
-    return WARN_ACTION
-
-
 def report_row_details(key_report_row, key_age, last_used_date):
     """Get the key enforce report details as a dict."""
     return {
@@ -368,3 +332,54 @@ def report_row_details(key_report_row, key_age, last_used_date):
 def exempt_groups_string(exempt_groups):
     """Get Exempt Groups as a commas separated string."""
     return ", ".join(exempt_groups) if exempt_groups else None
+
+
+def get_enforcement_action(key_user, log_prefix):
+    """Get the action to perform based on the keys usage and exemption status."""
+    exempted = key_user.exempted
+    last_used_date = key_user.key.last_used_date
+    key_age = key_user.key.age
+
+    if not exempted and not last_used_date and key_age >= KEY_USE_THRESHOLD:
+        # Not Exempted and Key has not been used and
+        # is older than the usage threshold, delete and report
+        action = UNUSED_ACTION
+    elif key_age < KEY_AGE_WARNING:
+        # Key age is < warning, do nothing, continue
+        action = NO_ACTION
+    elif exempted:
+        # EXEMPT:, do not take action on key, but report it
+        action = EXEMPT_ACTION
+    elif key_age >= KEY_AGE_DELETE:
+        # NOT EXEMPT: Key is older than the age to delete
+        # Attempt to delete and add row to report
+        action = DELETE_ACTION
+    elif key_age >= KEY_AGE_INACTIVE:
+        # NOT EXEMPT: Key is older than the age to disable
+        # Attempt to disable and add row to report
+        action = DISABLE_ACTION
+    else:
+        action = WARN_ACTION
+
+    reason = ACTION_REASONS.get(action)
+
+    # Since UNUSED_ACTION is really just a delete to prevent conditionals
+    # looking for unused or delete or ... just reset it to DELETE
+    if action == UNUSED_ACTION:
+        action = DELETE_ACTION
+
+    log_action(action, reason, key_user, log_prefix)
+
+    return action
+
+
+def log_action(action, reason, key_user, log_prefix):
+    """Log key action and reason against access key."""
+    LOG.info(
+        "%s %s access key id %s for user %s because %s.",
+        log_prefix,
+        action,
+        key_user.key.id,
+        key_user.name,
+        reason,
+    )

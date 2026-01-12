@@ -69,3 +69,13 @@ DISABLE_ACTION = "Disable"
 EXEMPT_ACTION = "Exempt"
 WARN_ACTION = "Warning"
 NO_ACTION = "None"
+UNUSED_ACTION = "Unused"
+
+ACTION_REASONS = {
+    DELETE_ACTION: f"key age is >= delete age ({KEY_AGE_DELETE} days) ",
+    DISABLE_ACTION: f"key must be rotated at {KEY_AGE_INACTIVE} days",
+    EXEMPT_ACTION: "user in exempted group",
+    WARN_ACTION: f"key age is >= warning age ({KEY_AGE_WARNING} days)",
+    NO_ACTION: f"key age < warning age ({KEY_AGE_WARNING} days)",
+    UNUSED_ACTION: f"key was NOT USED before {KEY_USE_THRESHOLD} days",
+}
