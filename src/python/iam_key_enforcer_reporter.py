@@ -110,7 +110,9 @@ class IamKeyEnforcerReporter:
         """Process user accounts access keys if they exist."""
         # Test if user is in an exempted group
         exempted = utils.is_user_exempted(
-            self.client_iam, user_name, self.enforce_details["exempt_groups"]
+            self.client_iam,
+            user_name,
+            self.enforce_details["exempt_groups"],
         )
 
         # List of iam enforcment report rows for user being processed
@@ -124,7 +126,8 @@ class IamKeyEnforcerReporter:
                 access_key_id = access_key["AccessKeyId"]
                 key_age = utils.object_age(access_key["CreateDate"])
                 last_used_date = utils.get_key_last_used_date(
-                    self.client_iam, access_key_id
+                    self.client_iam,
+                    access_key_id,
                 )
 
                 key = IaMAccessKey(access_key_id, key_age, last_used_date, access_key)
@@ -144,7 +147,7 @@ class IamKeyEnforcerReporter:
 
                 if key_report_row:
                     user_report.append(
-                        report_row_details(key_report_row, key_age, last_used_date)
+                        report_row_details(key_report_row, key_age, last_used_date),
                     )
 
             except ClientError:
@@ -165,7 +168,10 @@ class IamKeyEnforcerReporter:
         status = self.enforce_action(action, key_user)
 
         enforcement_report_row = IAMKeyReportRow(
-            key_user.name, access_key_id, action, status
+            key_user.name,
+            access_key_id,
+            action,
+            status,
         )
 
         # Send emails to user if an action was taken that requires notification
@@ -183,38 +189,47 @@ class IamKeyEnforcerReporter:
 
             if action == DELETE_ACTION:
                 self.delete_access_key(key_id, user_name)
-                return "DELETED"
+                status = "DELETED"
 
-            if action == DISABLE_ACTION:
+            elif action == DISABLE_ACTION:
                 self.disable_access_key(key_user.key.id, key_user.name)
-                return key_user.key.boto_key["Status"]
+                status = key_user.key.boto_key["Status"]
 
-            if action == EXEMPT_ACTION:
-                return f"{key_status} (Exempt)"
+            elif action == EXEMPT_ACTION:
+                status = f"{key_status} (Exempt)"
 
-            if action in (WARN_ACTION):
-                return key_status
+            elif action in (WARN_ACTION):
+                status = key_status
 
-            LOG.error("Unknown action %s for key %s user %s", action, key_id, user_name)
-            return f"{key_status} ({action} Error)"
-
+            else:
+                LOG.error(
+                    "Unknown action %s for key %s user %s", action, key_id, user_name
+                )
+                status = f"{key_status} ({action} Error)"
         except ClientError:
             # Mark that an error has occurred and set the status as an action error
             self.error()
-            return f'{key_user.key.boto_key["Status"]} ({action} Error)'
+            try:
+                status = f"{key_user.key.boto_key['Status']} ({action} Error)"
+            except ClientError:
+                status = f"Unknown Status ({action} Error)"
+        return status
 
     def delete_access_key(self, access_key_id, user_name):
         """Delete Access Key."""
         if self.enforce_details["armed"]:
             self.client_iam.delete_access_key(
-                UserName=user_name, AccessKeyId=access_key_id
+                UserName=user_name,
+                AccessKeyId=access_key_id,
             )
 
     def disable_access_key(self, access_key_id, user_name):
         """Disable Access Key."""
         if self.enforce_details["armed"]:
             self.client_iam.update_access_key(
-                UserName=user_name, AccessKeyId=access_key_id, Status="Inactive"
+                UserName=user_name,
+                AccessKeyId=access_key_id,
+                Status="Inactive",
             )
 
     def mail_user_key_report(self, action, key_user):
@@ -224,13 +239,16 @@ class IamKeyEnforcerReporter:
                 user_name = key_user.name
 
                 armed_state_msg = utils.action_armed_state_message(
-                    action, self.enforce_details["armed"]
+                    action,
+                    self.enforce_details["armed"],
                 )
                 if armed_state_msg:
                     template_data = self.user_email_template_data(key_user, action)
                     tags = self.client_iam.list_user_tags(UserName=user_name)
                     user_email_addr = get_user_email_from_tags(
-                        user_name, tags, self.enforce_details["is_debug"]
+                        user_name,
+                        tags,
+                        self.enforce_details["is_debug"],
                     )
                     user_mailer = UserMailer(
                         self.enforce_details["email_targets"],
@@ -241,15 +259,13 @@ class IamKeyEnforcerReporter:
                     user_mailer.mail()
                 else:
                     self.error(
-                        (
-                            f"Error Armed State Message - Action {action},"
-                            f"User {user_name}, Key {key_user.key.id}, No Email Sent"
-                        )
+                        f"Error Armed State Message - Action {action},"
+                        f"User {user_name}, Key {key_user.key.id}, No Email Sent",
                     )
             else:
                 LOG.info(
                     "Emailing the User is not enabled "
-                    "per event 'email_user_enabled' variable setting"
+                    "per event 'email_user_enabled' variable setting",
                 )
         except ClientError:
             self.error()
@@ -291,7 +307,7 @@ class IamKeyEnforcerReporter:
             optional_email_template_data(
                 self.enforce_details["armed"],
                 exempt_groups_string(self.enforce_details["exempt_groups"]),
-            )
+            ),
         )
         return template_data
 
@@ -312,7 +328,7 @@ class IamKeyEnforcerReporter:
 
     def error(self, msg=None):
         """Set has_errors to True and optionally LOG error message."""
-        self.error()
+        self.has_errors = True
         if msg:
             LOG.error(msg)
 

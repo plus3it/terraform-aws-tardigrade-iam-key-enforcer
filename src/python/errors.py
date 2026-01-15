@@ -11,3 +11,7 @@ class TemplateDataError(Exception):
 
 class GenerateCredentialReportThrottleError(Exception):
     """Raised when there is a throttle generating the credential report."""
+
+
+class InvalidReportRowError(Exception):
+    """Raised when IAM Key Report Row data is invalid."""

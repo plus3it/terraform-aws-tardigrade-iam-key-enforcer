@@ -1,17 +1,16 @@
 """Utilities Module."""
 
 import json
-from datetime import datetime, date
+from datetime import UTC, datetime
 
 import dateutil
+from aws_manager import AWSClientManager
 from constants import (
-    CLIENT_SES,
-    CLIENT_S3,
+    DELETE_ACTION,
+    DISABLE_ACTION,
     EMAIL_ADMIN_TEMPLATE,
     LOG,
     S3_BUCKET,
-    DELETE_ACTION,
-    DISABLE_ACTION,
 )
 from errors import TemplateDataError
 
@@ -31,7 +30,8 @@ def is_user_exempted(client_iam, user_name, exempt_groups) -> bool:
         for group in groups["Groups"]:
             if group["GroupName"] in exempt_groups:
                 LOG.info(
-                    "User is exempt via group membership in: %s", group["GroupName"]
+                    "User is exempt via group membership in: %s",
+                    group["GroupName"],
                 )
                 return True
     return False
@@ -53,29 +53,39 @@ def object_age(last_changed) -> int:
         last_changed_date = last_changed.date()
     else:
         return 0
-    age = date.today() - last_changed_date
+    age = datetime.now(tz=UTC).date() - last_changed_date
     return age.days
 
 
 def store_in_s3(account_number, template_data) -> None:
     """Store email report in S3 Bucket."""
-    s3_key = f"{account_number}" "/access_key_audit_report_" f"{str(date.today())}.html"
+    # Get the AWS CLients Manager (Singleton)
+    aws_manager = AWSClientManager()
+    s3_key = (
+        f"{account_number}/access_key_audit_report_{datetime.now(tz=UTC).date()!s}.html"
+    )
 
-    response = CLIENT_SES.test_render_template(
-        TemplateName=EMAIL_ADMIN_TEMPLATE, TemplateData=json.dumps(template_data)
+    response = aws_manager.ses.test_render_template(
+        TemplateName=EMAIL_ADMIN_TEMPLATE,
+        TemplateData=json.dumps(template_data),
     )
 
     email_contents = response.get("RenderedTemplate", None)
 
     if email_contents:
         LOG.debug(
-            "Storing report to S3 key %s Report Details: %s", s3_key, email_contents
+            "Storing report to S3 key %s Report Details: %s",
+            s3_key,
+            email_contents,
         )
-        response = CLIENT_S3.put_object(
-            Bucket=S3_BUCKET, Key=s3_key, Body=email_contents
+        response = aws_manager.s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=s3_key,
+            Body=email_contents,
         )
     else:
-        raise TemplateDataError(f"Invalid template data for {account_number}")
+        err = f"Invalid template data for {account_number}"
+        raise TemplateDataError(err)
 
 
 def root_user(user) -> bool:

@@ -1,4 +1,5 @@
-"""Audit Access Key Age.
+"""
+Audit Access Key Age.
 
 Purpose:
     Reads the credential report:
@@ -40,17 +41,23 @@ Event Variables:
 
 """
 
-import re
-import sys
 import csv
 import io
-
+import re
+import sys
 from argparse import ArgumentParser, ArgumentTypeError
 from time import sleep
-from constants import LOG, SESSION
-from aws_assume_role_lib import assume_role, generate_lambda_session_name
-from iam_key_enforcer_reporter import IamKeyEnforcerReporter
+
+from aws_assume_role_lib.aws_assume_role_lib import (
+    assume_role,
+    generate_lambda_session_name,
+)
+from aws_manager import AWSClientManager
+from constants import LOG
 from errors import GenerateCredentialReportThrottleError
+from iam_key_enforcer_reporter import IamKeyEnforcerReporter
+
+aws = AWSClientManager()
 
 
 def exception_hook(exc_type, exc_value, exc_traceback):
@@ -65,7 +72,8 @@ def exception_hook(exc_type, exc_value, exc_traceback):
 
 @LOG.inject_lambda_context(log_event=True)
 def lambda_handler(event, context):  # pylint: disable=unused-argument
-    """Audit Access Key Age.
+    """
+    Audit Access Key Age.
 
     Reads the credential report:
         - Determines the age of each access key
@@ -94,7 +102,7 @@ def generate_credential_report(client_iam, report_counter, max_attempts=5):
     if report_counter < max_attempts:
         LOG.info("Still waiting on report generation")
         sleep(10)
-        return generate_credential_report(client_iam, report_counter)
+        return generate_credential_report(client_iam, report_counter, max_attempts)
 
     throttle_error = "Credential report generation throttled - exit"
     raise GenerateCredentialReportThrottleError(throttle_error)
@@ -113,7 +121,9 @@ def get_credential_report(client_iam, report_counter=0):
 def get_client_iam(role_arn, function_name):
     """Get boto3 IAM Client by Assuming the Role ARN and returning the client."""
     assumed_role_session = assume_role(
-        SESSION, role_arn, RoleSessionName=generate_lambda_session_name(function_name)
+        aws.session,
+        role_arn,
+        RoleSessionName=generate_lambda_session_name(function_name),
     )
     return assumed_role_session.client("iam")
 
@@ -136,13 +146,15 @@ def main(role_arn, event, function_name):
 # Configure exception handler
 sys.excepthook = exception_hook
 
+# Constants for validation
+AWS_ACCOUNT_NUMBER_LENGTH = 12
+
 
 def account_number(value: str) -> str:
     """Argparse Account Number Validator."""
-    if len(value) != 12 or not value.isdigit():
-        raise ArgumentTypeError(
-            "account number must be exactly 12 digits (leading zeros allowed)"
-        )
+    if len(value) != AWS_ACCOUNT_NUMBER_LENGTH or not value.isdigit():
+        msg = "account number must be exactly 12 digits (leading zeros allowed)"
+        raise ArgumentTypeError(msg)
     return value
 
 
@@ -154,20 +166,21 @@ def iam_role_arn(role_arn: str) -> str:
         r":iam::"
         r"(?P<account_id>\d{12})"
         r":role/"
-        r"(?P<role_path>(?:[\w+=,.@-]+/)*[\w+=,.@-]+)$"
+        r"(?P<role_path>(?:[\w+=,.@-]+/)*[\w+=,.@-]+)$",
     )
     if not iam_role_pattern.match(role_arn):
-        raise ArgumentTypeError(
+        msg = (
             "invalid IAM role ARN "
             "expected: arn:aws|aws-us-gov:iam::<12-digit-account>:role/<role-name>)"
         )
+        raise ArgumentTypeError(msg)
     return role_arn
 
 
 # CLI Entry Point for Local Testing
 if __name__ == "__main__":
     parser = ArgumentParser(
-        description="Update a role trust policy in another account."
+        description="Update a role trust policy in another account.",
     )
     parser.add_argument(
         "--role-arn",

@@ -3,7 +3,7 @@
 import os
 import re
 import sys
-import boto3
+
 from aws_lambda_powertools import Logger
 
 # Standard logging config
@@ -17,10 +17,6 @@ LOG = Logger(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 
-# Get the Lambda session and clients
-SESSION = boto3.Session()
-CLIENT_SES = SESSION.client("ses")
-CLIENT_S3 = SESSION.client("s3")
 
 # Key Enforcer Thresholds (in days)
 KEY_AGE_WARNING = int(os.environ.get("KEY_AGE_WARNING", 75))
@@ -59,7 +55,7 @@ DEFAULT_PROCESSING_ERROR_MSG = "Errors occurred during processing, see logs"
 
 # Regex to validate that the email set in a tag is valid
 EMAIL_REGEX = re.compile(
-    r"([A-Za-z0-9]+[._-])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+"
+    r"([A-Za-z0-9]+[._-])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+",
 )
 
 # Actions to take on keys

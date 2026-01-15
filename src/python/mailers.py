@@ -2,18 +2,19 @@
 
 import json
 import re
+
+from aws_manager import AWSClientManager
 from constants import (
     ADMIN_EMAIL,
-    CLIENT_SES,
     EMAIL_ADMIN_REPORT_ENABLED,
     EMAIL_ADMIN_TEMPLATE,
     EMAIL_BANNER_MSG,
     EMAIL_BANNER_MSG_COLOR,
     EMAIL_REGEX,
     EMAIL_SOURCE,
-    LOG,
-    EMAIL_USER_TEMPLATE,
     EMAIL_TAG,
+    EMAIL_USER_TEMPLATE,
+    LOG,
 )
 
 
@@ -25,6 +26,7 @@ class AdminMailer:
         self.email_targets = email_targets
         self.template_data = template_data
         self.is_debug = is_debug
+        self.aws = AWSClientManager()
 
     def mail(self):
         """Email admin."""
@@ -46,6 +48,7 @@ class AdminMailer:
 
         # Construct and Send Email
         response = send_email(
+            self.aws.ses,
             EMAIL_ADMIN_TEMPLATE,
             self.template_data,
             to_addresses,
@@ -66,6 +69,7 @@ class UserMailer:
         self.user_email = user_email
         self.template_data = template_data
         self.is_debug = is_debug
+        self.aws = AWSClientManager()
 
     def mail(self):
         """Email user."""
@@ -75,7 +79,12 @@ class UserMailer:
             LOG.error("User email list is empty, no emails sent")
             return
 
-        response = send_email(EMAIL_USER_TEMPLATE, self.template_data, to_addresses)
+        response = send_email(
+            self.aws.ses,
+            EMAIL_USER_TEMPLATE,
+            self.template_data,
+            to_addresses,
+        )
         LOG.info("User Email Sent Successfully. Message ID: %s", response["MessageId"])
 
     def user_to_addresses(self):
@@ -121,9 +130,9 @@ def validate_email(email):
     return True
 
 
-def send_email(template, template_data, email_targets):
+def send_email(ses_client, template, template_data, email_targets):
     """Email user with the action taken on their key."""
-    return CLIENT_SES.send_templated_email(
+    return ses_client.send_templated_email(
         Source=EMAIL_SOURCE,
         Destination={
             "ToAddresses": email_targets,
