@@ -812,8 +812,10 @@ class TestMultipleUsersWithErrorInMiddle:
         old_date = datetime.now(tz=UTC) - timedelta(days=80)
 
         # Configure mock IAM client to succeed for user1 and user3, but fail for user2
-        def list_access_keys_side_effect(user_name):
-            if user_name == "user2":
+        # UserName must match boto3's AWS API parameter naming (PascalCase)
+        # pylint: disable=invalid-name
+        def list_access_keys_side_effect(UserName):  # noqa: N803
+            if UserName == "user2":
                 raise ClientError(
                     {"Error": {"Code": "ServiceError", "Message": "Service error"}},
                     "ListAccessKeys",
@@ -821,7 +823,7 @@ class TestMultipleUsersWithErrorInMiddle:
             return {
                 "AccessKeyMetadata": [
                     {
-                        "AccessKeyId": f"AKIA{user_name.upper()}",
+                        "AccessKeyId": f"AKIA{UserName.upper()}",
                         "Status": "Active",
                         "CreateDate": old_date,
                     }
@@ -880,9 +882,11 @@ class TestMultipleUsersWithErrorInMiddle:
         # First user succeeds, second fails, third succeeds
         call_count = [0]
 
-        def list_access_keys_side_effect(user_name):
+        # UserName must match boto3's AWS API parameter naming (PascalCase)
+        # pylint: disable=invalid-name
+        def list_access_keys_side_effect(UserName):  # noqa: N803
             call_count[0] += 1
-            if user_name == "failing-user":
+            if UserName == "failing-user":
                 raise ClientError(
                     {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
                     "ListAccessKeys",
@@ -945,9 +949,11 @@ class TestMultipleUsersWithErrorInMiddle:
         # Errors for users 1 and 3 (at different points)
         call_counter = [0]
 
-        def list_access_keys_side_effect(user_name):
+        # UserName must match boto3's AWS API parameter naming (PascalCase)
+        # pylint: disable=invalid-name
+        def list_access_keys_side_effect(UserName):  # noqa: N803
             call_counter[0] += 1
-            if user_name in ("error-user-1", "error-user-2"):
+            if UserName in ("error-user-1", "error-user-2"):
                 raise ClientError(
                     {"Error": {"Code": "Error", "Message": "Error"}},
                     "ListAccessKeys",
