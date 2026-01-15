@@ -107,8 +107,7 @@ resource "aws_iam_policy" "iam_policy" {
 }
 
 resource "aws_iam_role" "assume_role" {
-  name                = "${local.project}-role"
-  managed_policy_arns = [aws_iam_policy.iam_policy.arn]
+  name = "${local.project}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -123,6 +122,11 @@ resource "aws_iam_role" "assume_role" {
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "assume_role" {
+  role       = aws_iam_role.assume_role.name
+  policy_arn = aws_iam_policy.iam_policy.arn
 }
 
 data "terraform_remote_state" "prereq" {

@@ -1,0 +1,38 @@
+# Line length and excludes chosen to match prior flake8 settings
+line-length = 88
+exclude = [
+    ".git",
+    "__pycache__",
+    ".eggs",
+    "*.egg",
+    "build",
+    "dist",
+    "htmlcov",
+]
+
+[lint]
+ignore = [
+    "D107",  # __init__ docstrings are documented at the class level to avoid duplication
+    "D203",  # Conflicts with D211 (no-blank-line-before-class). Project uses D211 style.
+    "D212",  # Conflicts with D213 (multi-line-summary-first-line). Project uses D213 style.
+    "EXE001",  # Only occurs in CI when source is restored as artifact (loses executable bit)
+    "ANN",  # 500+ missing type annotations across src/tests; keep ignored for now; see staged plan below
+]
+select = ["ALL"]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101", "S314", "SLF", "ARG", "PLR2004", "PLR0913", "INP001"]
+
+# Prepare for future gradual enabling of ANN (flake8-annotations) with saner defaults
+[lint.flake8-annotations]
+# Don't require explicit "-> None" on __init__ (aligns with mypy default)
+mypy-init-return = true
+
+# Allow using Any for *args/**kwargs without error
+allow-star-arg-any = true
+
+# Don't flag unused conventional dummy args like _ or unused parameters in callbacks
+suppress-dummy-args = true
+
+# Don't require explicit -> None on functions that implicitly return None
+suppress-none-returning = true
