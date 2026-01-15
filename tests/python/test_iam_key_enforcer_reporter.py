@@ -763,3 +763,225 @@ class TestErrorMethod:
         reporter.error("Custom error message")
 
         mock_log_error.assert_called_with("Custom error message")
+
+    def test_error_without_message_does_not_log(self, mock_iam_client, mocker):
+        """Test that error without message doesn't call LOG.error."""
+        event = {"armed": True, "account_name": "test", "account_number": "123"}
+        reporter = IamKeyEnforcerReporter(mock_iam_client, event)
+
+        mock_log_error = mocker.patch("iam_key_enforcer_reporter.LOG.error")
+
+        reporter.error()
+
+        assert reporter.has_errors is True
+        mock_log_error.assert_not_called()
+
+
+class TestMultipleUsersWithErrorInMiddle:
+    """Tests for processing multiple users when an error occurs in the middle."""
+
+    def test_enforce_multiple_users_error_in_middle_continues_and_raises(
+        self, mock_iam_client, mocker
+    ):
+        """
+        Test that when processing multiple users, if an error occurs for one user.
+
+        Processing continues for remaining users, a report is generated, and then
+        an exception is raised at the end.
+        """
+        event = {
+            "armed": True,
+            "account_name": "test-account",
+            "account_number": "123456789012",
+            "exempt_groups": None,
+            "email_targets": ["admin@example.com"],
+            "is_debug": False,
+        }
+        reporter = IamKeyEnforcerReporter(mock_iam_client, event)
+
+        # Set up thresholds so all keys get a WARN action
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_WARNING", 75)
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_INACTIVE", 90)
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_DELETE", 120)
+        mocker.patch("iam_key_enforcer_reporter.S3_ENABLED", False)
+
+        # Mock AdminMailer to track that mail was called
+        mock_admin_mailer = mocker.patch("iam_key_enforcer_reporter.AdminMailer")
+
+        # Set up dates for access keys
+        old_date = datetime.now(tz=UTC) - timedelta(days=80)
+
+        # Configure mock IAM client to succeed for user1 and user3, but fail for user2
+        def list_access_keys_side_effect(user_name):
+            if user_name == "user2":
+                raise ClientError(
+                    {"Error": {"Code": "ServiceError", "Message": "Service error"}},
+                    "ListAccessKeys",
+                )
+            return {
+                "AccessKeyMetadata": [
+                    {
+                        "AccessKeyId": f"AKIA{user_name.upper()}",
+                        "Status": "Active",
+                        "CreateDate": old_date,
+                    }
+                ]
+            }
+
+        mock_iam_client.list_access_keys.side_effect = list_access_keys_side_effect
+        mock_iam_client.get_access_key_last_used.return_value = {
+            "AccessKeyLastUsed": {"LastUsedDate": datetime.now(tz=UTC)}
+        }
+        mock_iam_client.list_groups_for_user.return_value = {"Groups": []}
+
+        # Create credentials report with 3 users
+        credentials_report = [
+            {"user": "user1"},
+            {"user": "user2"},  # This user will fail
+            {"user": "user3"},
+        ]
+
+        # Execute enforce - should raise IamKeyEnforcerError after processing all users
+        with pytest.raises(IamKeyEnforcerError) as excinfo:
+            reporter.enforce(credentials_report)
+
+        # Verify the error message is correct
+        assert "Errors occurred during processing" in str(excinfo.value)
+
+        # Verify has_errors flag was set
+        assert reporter.has_errors is True
+
+        # Verify AdminMailer was called (report was still generated and sent)
+        mock_admin_mailer.assert_called_once()
+        mock_admin_mailer.return_value.mail.assert_called_once()
+
+        # Verify list_access_keys was called for all 3 users
+        assert mock_iam_client.list_access_keys.call_count == 3
+
+    def test_enforce_and_report_continues_after_user_error(
+        self, mock_iam_client, mocker
+    ):
+        """Test that enforce_and_report processes all users even if one fails."""
+        event = {
+            "armed": True,
+            "account_name": "test-account",
+            "account_number": "123456789012",
+            "exempt_groups": None,
+        }
+        reporter = IamKeyEnforcerReporter(mock_iam_client, event)
+
+        # Set up thresholds
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_WARNING", 75)
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_INACTIVE", 90)
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_DELETE", 120)
+
+        old_date = datetime.now(tz=UTC) - timedelta(days=80)
+
+        # First user succeeds, second fails, third succeeds
+        call_count = [0]
+
+        def list_access_keys_side_effect(user_name):
+            call_count[0] += 1
+            if user_name == "failing-user":
+                raise ClientError(
+                    {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+                    "ListAccessKeys",
+                )
+            return {
+                "AccessKeyMetadata": [
+                    {
+                        "AccessKeyId": f"AKIA{call_count[0]:04d}",
+                        "Status": "Active",
+                        "CreateDate": old_date,
+                    }
+                ]
+            }
+
+        mock_iam_client.list_access_keys.side_effect = list_access_keys_side_effect
+        mock_iam_client.get_access_key_last_used.return_value = {
+            "AccessKeyLastUsed": {"LastUsedDate": datetime.now(tz=UTC)}
+        }
+        mock_iam_client.list_groups_for_user.return_value = {"Groups": []}
+
+        credentials_report = [
+            {"user": "good-user-1"},
+            {"user": "failing-user"},
+            {"user": "good-user-2"},
+        ]
+
+        result = reporter.enforce_and_report(credentials_report)
+
+        # Should have results for 2 successful users
+        assert len(result) == 2
+        assert reporter.has_errors is True
+
+    def test_enforce_processes_all_users_and_keys_before_raising(
+        self, mock_iam_client, mocker
+    ):
+        """
+        Test all users processed even when errors.
+
+        Test that when multiple users are processed and some raise errors,
+        all users are still processed, a report is generated, and then an exception
+        """
+        event = {
+            "armed": True,
+            "account_name": "test-account",
+            "account_number": "123456789012",
+            "exempt_groups": None,
+            "email_targets": ["admin@example.com"],
+            "is_debug": True,
+        }
+        reporter = IamKeyEnforcerReporter(mock_iam_client, event)
+
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_WARNING", 75)
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_INACTIVE", 90)
+        mocker.patch("iam_key_enforcer_reporter.KEY_AGE_DELETE", 120)
+        mocker.patch("iam_key_enforcer_reporter.S3_ENABLED", False)
+        mock_admin_mailer = mocker.patch("iam_key_enforcer_reporter.AdminMailer")
+
+        old_date = datetime.now(tz=UTC) - timedelta(days=80)
+
+        # Errors for users 1 and 3 (at different points)
+        call_counter = [0]
+
+        def list_access_keys_side_effect(user_name):
+            call_counter[0] += 1
+            if user_name in ("error-user-1", "error-user-2"):
+                raise ClientError(
+                    {"Error": {"Code": "Error", "Message": "Error"}},
+                    "ListAccessKeys",
+                )
+            return {
+                "AccessKeyMetadata": [
+                    {
+                        "AccessKeyId": f"AKIA{call_counter[0]:04d}",
+                        "Status": "Active",
+                        "CreateDate": old_date,
+                    }
+                ]
+            }
+
+        mock_iam_client.list_access_keys.side_effect = list_access_keys_side_effect
+        mock_iam_client.get_access_key_last_used.return_value = {
+            "AccessKeyLastUsed": {"LastUsedDate": datetime.now(tz=UTC)}
+        }
+        mock_iam_client.list_groups_for_user.return_value = {"Groups": []}
+
+        credentials_report = [
+            {"user": "good-user-1"},
+            {"user": "error-user-1"},
+            {"user": "good-user-2"},
+            {"user": "error-user-2"},
+            {"user": "good-user-3"},
+        ]
+
+        with pytest.raises(IamKeyEnforcerError):
+            reporter.enforce(credentials_report)
+
+        # All 5 users should have been attempted
+        assert mock_iam_client.list_access_keys.call_count == 5
+
+        # Admin mailer should still be called (3 successful users)
+        mock_admin_mailer.assert_called_once()
+        mock_admin_mailer.return_value.mail.assert_called_once()
