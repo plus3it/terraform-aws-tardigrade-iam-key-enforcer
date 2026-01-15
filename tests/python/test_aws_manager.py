@@ -94,16 +94,8 @@ def test_ses_interaction_success(mocker):
     )
 
 
-def test_singleton_pattern(mocker):
-    """
-    Test that AWSClientManager implements singleton pattern correctly.
-
-    Parameters
-    ----------
-    mocker
-        Pytest-mock mocker fixture.
-
-    """
+def test_singleton_pattern():
+    """Test that AWSClientManager implements singleton pattern correctly."""
     # Create first instance
     aws1 = AWSClientManager()
 
