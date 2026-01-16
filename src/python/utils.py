@@ -78,7 +78,7 @@ def store_in_s3(account_number, template_data) -> None:
             s3_key,
             email_contents,
         )
-        response = aws_manager.s3.put_object(
+        aws_manager.s3.put_object(
             Bucket=S3_BUCKET,
             Key=s3_key,
             Body=email_contents,
