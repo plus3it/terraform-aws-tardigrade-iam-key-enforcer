@@ -16,7 +16,7 @@ variable "email_admin_report_enabled" {
 }
 
 variable "email_admin_report_subject" {
-  description = "Subject of the report email that is sent"
+  description = "This variable is deprecated and will be removed in a future release, variable value was never used, admin report subject is set via email templates variable"
   type        = string
   default     = null
 }
