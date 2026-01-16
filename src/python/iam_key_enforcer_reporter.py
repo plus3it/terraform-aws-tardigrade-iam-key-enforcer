@@ -320,7 +320,7 @@ class IamKeyEnforcerReporter:
             "armed_state_msg": armed_state_msg,
             "access_key_id": key_user.key.id,
             "action": action,
-            "key_age": key_user.key.id,
+            "key_age": key_user.key.age,
             "user_name": key_user.name,
         }
         template_data.update(optional_email_template_data(armed))
