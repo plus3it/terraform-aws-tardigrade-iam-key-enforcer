@@ -99,7 +99,8 @@ class IamKeyEnforcerReporter:
                 if not utils.root_user(user):
                     user_report = self.process_user(user)
                     if user_report:
-                        report_rows.append(user_report)
+                        # Flatten per-user report rows into a single list
+                        report_rows.extend(user_report)
             except ClientError:
                 self.error(f"Error processing user {user}, skipping user")
                 continue
