@@ -248,4 +248,4 @@ if __name__ == "__main__":
         "is_debug": args.debug,
     }
 
-    sys.exit(main(args.role_arn, cli_enforce_details, "iam_key_enforcer_cli"))
+    main(args.role_arn, cli_enforce_details, "iam_key_enforcer_cli")
