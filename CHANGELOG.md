@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+### [3.0.0](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/releases/tag/3.0.0)
+
+**Released**: 2026.01.20
+
+**Summary**:
+
+*   Major refactoring of Python codebase for improved maintainability and robustness
+*   Enhances error handling to continue processing remaining users when errors are encountered
+*   Improves logging for better debugging and troubleshooting
+*   Adds CLI mode for local testing and development
+*   Removes unused environment variable `EMAIL_ADMIN_REPORT_SUBJECT`
+*   Deprecates unused Terraform variable `email_admin_report_subject`
+
 ### [2.0.0](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/releases/tag/2.0.0)
 
 **Released**: 2026.01.02
