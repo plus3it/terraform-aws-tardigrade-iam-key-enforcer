@@ -44,7 +44,7 @@ EMAIL_BANNER_MSG_COLOR = os.environ.get("EMAIL_BANNER_MSG_COLOR", "black").strip
 EMAIL_USER_TEMPLATE = os.environ.get("EMAIL_USER_TEMPLATE")
 EMAIL_ADMIN_TEMPLATE = os.environ.get("EMAIL_ADMIN_TEMPLATE")
 
-# Prefixes for messages based on whether the enforemcent is armed or not
+# Prefixes for messages based on whether the enforcement is armed or not
 NOT_ARMED_PREFIX = "NOT ARMED:"
 ARMED_PREFIX = "ARMED:"
 
