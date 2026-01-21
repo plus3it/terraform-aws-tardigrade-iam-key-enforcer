@@ -48,10 +48,7 @@ import sys
 from argparse import ArgumentParser, ArgumentTypeError
 from time import sleep
 
-from aws_assume_role_lib.aws_assume_role_lib import (
-    assume_role,
-    generate_lambda_session_name,
-)
+from aws_assume_role_lib import assume_role, generate_lambda_session_name
 from aws_manager import AWSClientManager
 from constants import LOG
 from errors import GenerateCredentialReportThrottleError
