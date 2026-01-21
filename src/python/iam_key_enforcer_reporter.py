@@ -194,7 +194,7 @@ class IamKeyEnforcerReporter:
 
             elif action == DISABLE_ACTION:
                 self.disable_access_key(key_user.key.id, key_user.name)
-                status = key_user.key.boto_key["Status"]
+                status = "INACTIVE"
 
             elif action == EXEMPT_ACTION:
                 status = f"{key_status} (Exempt)"
