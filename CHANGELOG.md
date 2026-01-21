@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 *   Adds CLI mode for local testing and development
 *   Removes unused environment variable `EMAIL_ADMIN_REPORT_SUBJECT`
 *   Deprecates unused Terraform variable `email_admin_report_subject`
+*   Tools
+        *   aws-lambda-powertools `3.24.0`
+        *   aws-assume-role-lib `2.10.0`
+        *   boto3 `1.42.30`
 
 ### [2.0.0](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/releases/tag/2.0.0)
 
