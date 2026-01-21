@@ -25,7 +25,7 @@ from constants import (
     UNUSED_ACTION,
     WARN_ACTION,
 )
-from errors import IamKeyEnforcerError, TemplateDataError
+from errors import IAMKeyEnforcerError, TemplateDataError
 from iam_key_enforcement_report_row import IAMKeyReportRow
 from mailers import (
     AdminMailer,
@@ -46,7 +46,7 @@ class IaMAccessKey:
 
 
 @dataclass
-class IaMAccessKeyUser:
+class IAMAccessKeyUser:
     """IaM Access Key User Data."""
 
     name: str
@@ -83,7 +83,7 @@ class IamKeyEnforcerReporter:
             )
 
         if self.has_errors:
-            raise IamKeyEnforcerError(DEFAULT_PROCESSING_ERROR_MSG)
+            raise IAMKeyEnforcerError(DEFAULT_PROCESSING_ERROR_MSG)
 
     def enforce_and_report(self, credentials_report):
         """Process each user and key in the Credential Report."""
@@ -134,7 +134,7 @@ class IamKeyEnforcerReporter:
                 )
 
                 key = IaMAccessKey(access_key_id, key_age, last_used_date, access_key)
-                user = IaMAccessKeyUser(user_name, exempted, key)
+                user = IAMAccessKeyUser(user_name, exempted, key)
 
                 # Log Access Key Details
                 LOG.info(

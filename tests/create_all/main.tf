@@ -122,6 +122,10 @@ resource "aws_iam_role" "assume_role" {
       }
     ]
   })
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "assume_role" {

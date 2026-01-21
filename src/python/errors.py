@@ -1,7 +1,7 @@
 """Custom Exceptions for IAM Key Enforcer."""
 
 
-class IamKeyEnforcerError(Exception):
+class IAMKeyEnforcerError(Exception):
     """Generic IamKeyEnforcer Lambda Error."""
 
 

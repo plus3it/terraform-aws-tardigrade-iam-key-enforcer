@@ -18,11 +18,11 @@ from constants import (
     NO_ACTION,
     WARN_ACTION,
 )
-from errors import IamKeyEnforcerError
+from errors import IAMKeyEnforcerError
 from iam_key_enforcement_report_row import IAMKeyReportRow
 from iam_key_enforcer_reporter import (
     IaMAccessKey,
-    IaMAccessKeyUser,
+    IAMAccessKeyUser,
     IamKeyEnforcerReporter,
     exempt_groups_string,
     get_enforcement_action,
@@ -68,15 +68,15 @@ class TestIaMAccessKey:
         assert key.boto_key["Status"] == "Inactive"
 
 
-class TestIaMAccessKeyUser:
-    """Tests for IaMAccessKeyUser dataclass."""
+class TestIAMAccessKeyUser:
+    """Tests for IAMAccessKeyUser dataclass."""
 
     def test_create_exempted_user(self):
         """Test creating exempted user with access key."""
         boto_key = {"AccessKeyId": "AKIA789", "Status": "Active"}
         key = IaMAccessKey("AKIA789", 50, None, boto_key)
 
-        user = IaMAccessKeyUser(name="test-user", exempted=True, key=key)
+        user = IAMAccessKeyUser(name="test-user", exempted=True, key=key)
 
         assert user.name == "test-user"
         assert user.exempted is True
@@ -87,7 +87,7 @@ class TestIaMAccessKeyUser:
         boto_key = {"AccessKeyId": "AKIA999", "Status": "Active"}
         key = IaMAccessKey("AKIA999", 90, datetime.now(tz=UTC), boto_key)
 
-        user = IaMAccessKeyUser(name="admin-user", exempted=False, key=key)
+        user = IAMAccessKeyUser(name="admin-user", exempted=False, key=key)
 
         assert user.name == "admin-user"
         assert user.exempted is False
@@ -198,7 +198,7 @@ class TestGetEnforcementAction:
         """Test action for unused key beyond threshold."""
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 40, None, boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         # Mock the KEY_USE_THRESHOLD to be 30
         mocker.patch("iam_key_enforcer_reporter.KEY_USE_THRESHOLD", 30)
@@ -211,7 +211,7 @@ class TestGetEnforcementAction:
         """Test no action for key younger than warning age."""
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 50, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_WARNING", 75)
 
@@ -223,7 +223,7 @@ class TestGetEnforcementAction:
         """Test exempt action for exempted user."""
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 100, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("admin-user", True, key)
+        user = IAMAccessKeyUser("admin-user", True, key)
 
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_WARNING", 75)
 
@@ -235,7 +235,7 @@ class TestGetEnforcementAction:
         """Test delete action for key older than delete age."""
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 130, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_DELETE", 120)
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_WARNING", 75)
@@ -248,7 +248,7 @@ class TestGetEnforcementAction:
         """Test disable action for key at inactive age."""
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 95, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_DELETE", 120)
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_INACTIVE", 90)
@@ -262,7 +262,7 @@ class TestGetEnforcementAction:
         """Test warn action for key at warning age."""
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 80, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_DELETE", 120)
         mocker.patch("iam_key_enforcer_reporter.KEY_AGE_INACTIVE", 90)
@@ -281,7 +281,7 @@ class TestLogAction:  # pylint: disable=too-few-public-methods
         mock_log_info = mocker.patch("iam_key_enforcer_reporter.LOG.info")
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 95, None, boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         log_action(DELETE_ACTION, "key is old", user, "ARMED:")
 
@@ -303,7 +303,7 @@ class TestEnforceAction:
 
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 95, None, boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         status = reporter.enforce_action(DELETE_ACTION, user)
 
@@ -320,7 +320,7 @@ class TestEnforceAction:
 
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 95, None, boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         status = reporter.enforce_action(DELETE_ACTION, user)
 
@@ -334,7 +334,7 @@ class TestEnforceAction:
 
         boto_key = {"AccessKeyId": "AKIA456", "Status": "Active"}
         key = IaMAccessKey("AKIA456", 92, None, boto_key)
-        user = IaMAccessKeyUser("admin-user", False, key)
+        user = IAMAccessKeyUser("admin-user", False, key)
 
         status = reporter.enforce_action(DISABLE_ACTION, user)
 
@@ -352,7 +352,7 @@ class TestEnforceAction:
 
         boto_key = {"AccessKeyId": "AKIA789", "Status": "Active"}
         key = IaMAccessKey("AKIA789", 100, None, boto_key)
-        user = IaMAccessKeyUser("exempt-user", True, key)
+        user = IAMAccessKeyUser("exempt-user", True, key)
 
         status = reporter.enforce_action(EXEMPT_ACTION, user)
 
@@ -365,7 +365,7 @@ class TestEnforceAction:
 
         boto_key = {"AccessKeyId": "AKIA999", "Status": "Active"}
         key = IaMAccessKey("AKIA999", 80, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("warn-user", False, key)
+        user = IAMAccessKeyUser("warn-user", False, key)
 
         status = reporter.enforce_action(WARN_ACTION, user)
 
@@ -384,7 +384,7 @@ class TestEnforceAction:
         )
 
         key = IaMAccessKey("AKIA111", 95, None, mock_boto_key)
-        user = IaMAccessKeyUser("error-user", False, key)
+        user = IAMAccessKeyUser("error-user", False, key)
 
         status = reporter.enforce_action(DELETE_ACTION, user)
 
@@ -405,7 +405,7 @@ class TestProcessUserAccessKey:
 
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 50, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         result = reporter.process_user_access_key(user)
 
@@ -428,7 +428,7 @@ class TestProcessUserAccessKey:
 
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 80, datetime.now(tz=UTC), boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         result = reporter.process_user_access_key(user)
 
@@ -568,7 +568,7 @@ class TestEnforce:
         mock_admin_mailer.return_value.mail.assert_called_once()
 
     def test_enforce_raises_error_when_has_errors(self, mock_iam_client):
-        """Test that enforce raises IamKeyEnforcerError when has_errors is True."""
+        """Test that enforce raises IAMKeyEnforcerError when has_errors is True."""
         event = {
             "armed": True,
             "account_name": "test-account",
@@ -591,7 +591,7 @@ class TestEnforce:
             }
         ]
 
-        with pytest.raises(IamKeyEnforcerError):
+        with pytest.raises(IAMKeyEnforcerError):
             reporter.enforce(credentials_report)
 
 
@@ -729,7 +729,7 @@ class TestTemplateDataMethods:
 
         boto_key = {"AccessKeyId": "AKIA123", "Status": "Active"}
         key = IaMAccessKey("AKIA123", 95, None, boto_key)
-        user = IaMAccessKeyUser("test-user", False, key)
+        user = IAMAccessKeyUser("test-user", False, key)
 
         result = reporter.user_email_template_data(user, DELETE_ACTION)
 
@@ -844,8 +844,8 @@ class TestMultipleUsersWithErrorInMiddle:
             {"user": "user3"},
         ]
 
-        # Execute enforce - should raise IamKeyEnforcerError after processing all users
-        with pytest.raises(IamKeyEnforcerError) as excinfo:
+        # Execute enforce - should raise IAMKeyEnforcerError after processing all users
+        with pytest.raises(IAMKeyEnforcerError) as excinfo:
             reporter.enforce(credentials_report)
 
         # Verify the error message is correct
@@ -983,7 +983,7 @@ class TestMultipleUsersWithErrorInMiddle:
             {"user": "good-user-3"},
         ]
 
-        with pytest.raises(IamKeyEnforcerError):
+        with pytest.raises(IAMKeyEnforcerError):
             reporter.enforce(credentials_report)
 
         # All 5 users should have been attempted
