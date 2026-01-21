@@ -14,8 +14,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 *   Enhances error handling to continue processing remaining users when errors are encountered
 *   Improves logging for better debugging and troubleshooting
 *   Adds CLI mode for local testing and development
+*   Removes unused Terraform variable `email_admin_report_subject`
 *   Removes unused environment variable `EMAIL_ADMIN_REPORT_SUBJECT`
-*   Deprecates unused Terraform variable `email_admin_report_subject`
 *   Tools
         *   aws-lambda-powertools `3.24.0`
         *   aws-assume-role-lib `2.10.0`
