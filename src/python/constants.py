@@ -75,3 +75,6 @@ ACTION_REASONS = {
     NO_ACTION: f"key age < warning age ({KEY_AGE_WARNING} days)",
     UNUSED_ACTION: f"key was NOT USED before {KEY_USE_THRESHOLD} days",
 }
+
+DELETED_STATUS = "DELETED"
+DISABLED_STATUS = "INACTIVE"

@@ -10,6 +10,7 @@ import pytest
 from constants import (
     DELETE_ACTION,
     DISABLE_ACTION,
+    DISABLED_STATUS,
     EXEMPT_ACTION,
     NO_ACTION,
     UNUSED_ACTION,
@@ -37,13 +38,13 @@ class TestIAMKeyReportRowCreation:
             "test-user",
             "AKIAIOSFODNN7EXAMPLE",
             DISABLE_ACTION,
-            "Active",
+            DISABLED_STATUS,
         )
 
         assert row.user_name == "test-user"
         assert row.access_key_id == "AKIAIOSFODNN7EXAMPLE"
         assert row.action == DISABLE_ACTION
-        assert row.status == "Active"
+        assert row.status == DISABLED_STATUS
 
     def test_create_with_valid_exempt_action(self):
         """Test creating IAMKeyReportRow with EXEMPT_ACTION."""

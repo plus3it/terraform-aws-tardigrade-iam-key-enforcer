@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from constants import (
     DELETE_ACTION,
     DISABLE_ACTION,
+    DISABLED_STATUS,
     EXEMPT_ACTION,
     NO_ACTION,
     WARN_ACTION,
@@ -146,7 +147,7 @@ class TestReportRowDetails:
 
     def test_report_row_details_with_none_last_used(self):
         """Test report_row_details with None last_used_date."""
-        row = IAMKeyReportRow("admin", "AKIA456", WARN_ACTION, "Inactive")
+        row = IAMKeyReportRow("admin", "AKIA456", WARN_ACTION, DISABLED_STATUS)
         key_age = 80
         last_used_date = None
 
@@ -337,7 +338,7 @@ class TestEnforceAction:
 
         status = reporter.enforce_action(DISABLE_ACTION, user)
 
-        assert status == "Active"
+        assert status == DISABLED_STATUS
         mock_iam_client.update_access_key.assert_called_once_with(
             UserName="admin-user",
             AccessKeyId="AKIA456",

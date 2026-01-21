@@ -10,7 +10,9 @@ from constants import (
     ARMED_PREFIX,
     DEFAULT_PROCESSING_ERROR_MSG,
     DELETE_ACTION,
+    DELETED_STATUS,
     DISABLE_ACTION,
+    DISABLED_STATUS,
     EXEMPT_ACTION,
     KEY_AGE_DELETE,
     KEY_AGE_INACTIVE,
@@ -190,11 +192,11 @@ class IamKeyEnforcerReporter:
 
             if action == DELETE_ACTION:
                 self.delete_access_key(key_id, user_name)
-                status = "DELETED"
+                status = DELETED_STATUS
 
             elif action == DISABLE_ACTION:
                 self.disable_access_key(key_user.key.id, key_user.name)
-                status = "INACTIVE"
+                status = DISABLED_STATUS
 
             elif action == EXEMPT_ACTION:
                 status = f"{key_status} (Exempt)"
