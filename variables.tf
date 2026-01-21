@@ -15,12 +15,6 @@ variable "email_admin_report_enabled" {
   default     = false
 }
 
-variable "email_admin_report_subject" {
-  description = "Subject of the report email that is sent"
-  type        = string
-  default     = null
-}
-
 variable "email_source" {
   description = "Email that will be used to send messages"
   type        = string
