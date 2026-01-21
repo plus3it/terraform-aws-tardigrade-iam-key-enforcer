@@ -201,7 +201,7 @@ class IamKeyEnforcerReporter:
             elif action == EXEMPT_ACTION:
                 status = f"{key_status} (Exempt)"
 
-            elif action in (WARN_ACTION):
+            elif action == WARN_ACTION:
                 status = key_status
 
             else:
