@@ -9,8 +9,11 @@ from constants import (
     DELETE_ACTION,
     DISABLE_ACTION,
     EMAIL_ADMIN_TEMPLATE,
+    KEY_AGE_INACTIVE,
+    KEY_AGE_WARNING,
     LOG,
     S3_BUCKET,
+    WARN_ACTION,
 )
 from errors import TemplateDataError
 
@@ -104,6 +107,13 @@ def action_armed_state_message(action, is_armed) -> str | None:
     if action == DISABLE_ACTION:
         return (
             "has been marked 'Inactive'" if is_armed else "would be marked 'Inactive'"
+        )
+
+    if action == WARN_ACTION:
+        return (
+            f"is older than {KEY_AGE_WARNING} days and will be disabled at {KEY_AGE_INACTIVE} days"
+            if is_armed
+            else f"would be warned about approaching the inactive threshold of {KEY_AGE_INACTIVE} days"
         )
 
     return None
