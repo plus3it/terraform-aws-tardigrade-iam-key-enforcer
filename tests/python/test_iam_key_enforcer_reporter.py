@@ -524,6 +524,7 @@ class TestEnforce:
             "account_number": "123456789012",
             "exempt_groups": None,
             "email_targets": ["admin@example.com"],
+            "email_user_enabled": False,
             "is_debug": False,
         }
         reporter = IamKeyEnforcerReporter(mock_iam_client, event)
@@ -605,6 +606,7 @@ class TestMailingAndStorageMethods:
             "account_name": "test",
             "account_number": "123",
             "email_targets": ["admin@test.com"],
+            "email_user_enabled": False,
             "is_debug": False,
         }
         reporter = IamKeyEnforcerReporter(mock_iam_client, event)
@@ -627,6 +629,7 @@ class TestMailingAndStorageMethods:
             "account_name": "test",
             "account_number": "123",
             "email_targets": ["admin@test.com"],
+            "email_user_enabled": False,
             "is_debug": False,
         }
         reporter = IamKeyEnforcerReporter(mock_iam_client, event)
@@ -796,6 +799,7 @@ class TestMultipleUsersWithErrorInMiddle:
             "account_number": "123456789012",
             "exempt_groups": None,
             "email_targets": ["admin@example.com"],
+            "email_user_enabled": False,
             "is_debug": False,
         }
         reporter = IamKeyEnforcerReporter(mock_iam_client, event)
@@ -869,6 +873,7 @@ class TestMultipleUsersWithErrorInMiddle:
             "armed": True,
             "account_name": "test-account",
             "account_number": "123456789012",
+            "email_user_enabled": False,
             "exempt_groups": None,
         }
         reporter = IamKeyEnforcerReporter(mock_iam_client, event)
@@ -935,6 +940,7 @@ class TestMultipleUsersWithErrorInMiddle:
             "account_number": "123456789012",
             "exempt_groups": None,
             "email_targets": ["admin@example.com"],
+            "email_user_enabled": False,
             "is_debug": True,
         }
         reporter = IamKeyEnforcerReporter(mock_iam_client, event)
