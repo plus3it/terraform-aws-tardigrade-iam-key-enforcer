@@ -111,9 +111,11 @@ def action_armed_state_message(action, is_armed) -> str | None:
 
     if action == WARN_ACTION:
         return (
-            f"is older than {KEY_AGE_WARNING} days and will be disabled at {KEY_AGE_INACTIVE} days"
+            f"is older than {KEY_AGE_WARNING} days and will be "
+            f"disabled at {KEY_AGE_INACTIVE} days"
             if is_armed
-            else f"would be warned about approaching the inactive threshold of {KEY_AGE_INACTIVE} days"
+            else "would be warned about approaching the "
+            f"inactive threshold of {KEY_AGE_INACTIVE} days"
         )
 
     return None

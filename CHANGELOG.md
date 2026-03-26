@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 **Summary**:
 
 *   Fix defect where if is_debug is not passed in the lambda will fail to run email
+*   Add user emails for warning actions
 
 ### [3.0.0](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/releases/tag/3.0.0)
 
