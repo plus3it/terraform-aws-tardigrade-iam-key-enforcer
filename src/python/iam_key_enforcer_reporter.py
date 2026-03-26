@@ -61,7 +61,7 @@ class IamKeyEnforcerReporter:
         """Create IAM Key Enforcer Reporter."""
         self.client_iam = client_iam
         self.enforce_details = event
-        self.enforce_details["is_debug"] = event.get("is_debug", False)
+        self.enforce_details["is_debug"] = event.get("is_debug") || False
         self.has_errors = False
         self.log_prefix = ARMED_PREFIX if event["armed"] else NOT_ARMED_PREFIX
 
