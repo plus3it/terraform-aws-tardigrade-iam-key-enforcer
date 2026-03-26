@@ -179,7 +179,7 @@ class IamKeyEnforcerReporter:
         )
 
         # Send emails to user if an action was taken that requires notification
-        if action in (DELETE_ACTION, DISABLE_ACTION):
+        if action in (DELETE_ACTION, DISABLE_ACTION, WARN_ACTION):
             self.mail_user_key_report(action, key_user)
 
         return enforcement_report_row
