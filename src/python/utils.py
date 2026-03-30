@@ -9,8 +9,11 @@ from constants import (
     DELETE_ACTION,
     DISABLE_ACTION,
     EMAIL_ADMIN_TEMPLATE,
+    KEY_AGE_INACTIVE,
+    KEY_AGE_WARNING,
     LOG,
     S3_BUCKET,
+    WARN_ACTION,
 )
 from errors import TemplateDataError
 
@@ -98,12 +101,18 @@ def root_user(user) -> bool:
 
 def action_armed_state_message(action, is_armed) -> str | None:
     """Return message based on action and armed state."""
+    armed_msg = "has been" if is_armed else "would be"
     if action == DELETE_ACTION:
-        return "has been deleted" if is_armed else "would be marked for deletion"
+        return f"{armed_msg} deleted"
 
     if action == DISABLE_ACTION:
+        return f"{armed_msg} marked 'Inactive'"
+
+    if action == WARN_ACTION:
+        armed_msg = "will be" if is_armed else "would be"
         return (
-            "has been marked 'Inactive'" if is_armed else "would be marked 'Inactive'"
+            f"is older than {KEY_AGE_WARNING} days and {armed_msg} "
+            f"disabled at {KEY_AGE_INACTIVE} days"
         )
 
     return None

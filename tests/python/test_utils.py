@@ -10,6 +10,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from constants import KEY_AGE_INACTIVE, KEY_AGE_WARNING
 from errors import TemplateDataError
 from utils import (
     action_armed_state_message,
@@ -427,7 +428,7 @@ class TestActionArmedStateMessage:
 
         result = action_armed_state_message("Delete", is_armed=False)
 
-        assert result == "would be marked for deletion"
+        assert result == "would be deleted"
 
     def test_disable_action_armed(self, mocker):
         """Test disable action when armed."""
@@ -445,14 +446,29 @@ class TestActionArmedStateMessage:
 
         assert result == "would be marked 'Inactive'"
 
-    def test_other_action_returns_none(self, mocker):
+    def test_warn_action_returns_armed_message(self, mocker):
         """Test other actions return None."""
         mocker.patch("utils.DELETE_ACTION", "Delete")
         mocker.patch("utils.DISABLE_ACTION", "Disable")
 
         result = action_armed_state_message("Warning", is_armed=True)
 
-        assert result is None
+        assert result == (
+            f"is older than {KEY_AGE_WARNING} days and will be "
+            f"disabled at {KEY_AGE_INACTIVE} days"
+        )
+
+    def test_warn_action_returns_unarmed_message(self, mocker):
+        """Test other actions return None."""
+        mocker.patch("utils.DELETE_ACTION", "Delete")
+        mocker.patch("utils.DISABLE_ACTION", "Disable")
+
+        result = action_armed_state_message("Warning", is_armed=False)
+
+        assert result == (
+            f"is older than {KEY_AGE_WARNING} days and would be "
+            f"disabled at {KEY_AGE_INACTIVE} days"
+        )
 
     def test_exempt_action_returns_none(self, mocker):
         """Test exempt action returns None."""

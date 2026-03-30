@@ -61,6 +61,7 @@ class IamKeyEnforcerReporter:
         """Create IAM Key Enforcer Reporter."""
         self.client_iam = client_iam
         self.enforce_details = event
+        self.enforce_details["is_debug"] = event.get("is_debug") or False
         self.has_errors = False
         self.log_prefix = ARMED_PREFIX if event["armed"] else NOT_ARMED_PREFIX
 
@@ -178,7 +179,7 @@ class IamKeyEnforcerReporter:
         )
 
         # Send emails to user if an action was taken that requires notification
-        if action in (DELETE_ACTION, DISABLE_ACTION):
+        if action in (DELETE_ACTION, DISABLE_ACTION, WARN_ACTION):
             self.mail_user_key_report(action, key_user)
 
         return enforcement_report_row

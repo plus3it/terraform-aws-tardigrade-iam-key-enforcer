@@ -125,9 +125,7 @@ def log_invalid_email(email_type, email):
 
 def validate_email(email):
     """Validate email provided matches regex."""
-    if not email or not re.fullmatch(EMAIL_REGEX, email):
-        return False
-    return True
+    return bool(email and re.fullmatch(EMAIL_REGEX, email))
 
 
 def send_email(ses_client, template, template_data, email_targets):
