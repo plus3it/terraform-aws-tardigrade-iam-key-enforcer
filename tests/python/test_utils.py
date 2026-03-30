@@ -428,7 +428,7 @@ class TestActionArmedStateMessage:
 
         result = action_armed_state_message("Delete", is_armed=False)
 
-        assert result == "would be marked for deletion"
+        assert result == "would be deleted"
 
     def test_disable_action_armed(self, mocker):
         """Test disable action when armed."""
@@ -446,7 +446,7 @@ class TestActionArmedStateMessage:
 
         assert result == "would be marked 'Inactive'"
 
-    def test_warn_action_returns_message(self, mocker):
+    def test_warn_action_returns_armed_message(self, mocker):
         """Test other actions return None."""
         mocker.patch("utils.DELETE_ACTION", "Delete")
         mocker.patch("utils.DISABLE_ACTION", "Disable")
@@ -454,8 +454,20 @@ class TestActionArmedStateMessage:
         result = action_armed_state_message("Warning", is_armed=True)
 
         assert result == (
-            f"is older than {KEY_AGE_WARNING} days "
-            f"and will be disabled at {KEY_AGE_INACTIVE} days"
+            f"is older than {KEY_AGE_WARNING} days and will be "
+            f"disabled at {KEY_AGE_INACTIVE} days"
+        )
+
+    def test_warn_action_returns_unarmed_message(self, mocker):
+        """Test other actions return None."""
+        mocker.patch("utils.DELETE_ACTION", "Delete")
+        mocker.patch("utils.DISABLE_ACTION", "Disable")
+
+        result = action_armed_state_message("Warning", is_armed=False)
+
+        assert result == (
+            f"is older than {KEY_AGE_WARNING} days and would be "
+            f"disabled at {KEY_AGE_INACTIVE} days"
         )
 
     def test_exempt_action_returns_none(self, mocker):
