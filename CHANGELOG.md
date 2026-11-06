@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+### [3.0.2](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/releases/tag/3.0.2)
+
+**Released**: 2026.11.06
+
+**Summary**:
+
+*   Maintenance release with development tooling and CI/CD dependency updates
+*   Updates tardigrade-ci from 0.28.7 to 0.32.0 ([#91](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/pull/91), [#90](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/pull/90), and related)
+*   Updates terraform-aws-lambda module from v8.7.0 to v8.13.0
+*   Adds AGENTS.md with shared Plus3 IT development instructions ([#89](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/pull/89))
+*   Updates GitHub Actions workflow dependencies (astral-sh/setup-uv, actions/checkout, actions/setup-python)
+*   No changes to Lambda function code or Terraform module interface
+
 ### [3.0.1](https://github.com/plus3it/terraform-aws-tardigrade-iam-key-enforcer/releases/tag/3.0.1)
 
 **Released**: 2026.03.26
